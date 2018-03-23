@@ -33,8 +33,10 @@ INTERNAL_IP=$(curl -s -H "Metadata-Flavor: Google" \
   http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/ip)
 KUBERNETES_VERSION=v1.9.0
 
-  TOKEN="822515.f7abb6bd41368f03"
+  TOKEN="74c61b.c15097eddfffc38c"
   MASTER_IP="10.128.0.4"
+  MASTERSHA="d3aac5515a7bf4047c0de8c6d3cc31feac92f71c907b5987a43ac5db72031ac7"
 
-  sudo kubeadm join --token ${TOKEN} ${MASTER_IP}:6443 --discovery-token-unsafe-skip-ca-verification
+  sudo kubeadm join --token ${TOKEN} ${MASTER_IP}:6443 --discovery-token-ca-cert-hash sha256:${MASTERSHA}
+
   #kubeadm join --token 5b7804.ac568c8388123e58 10.128.0.3:6443 --discovery-token-ca-cert-hash sha256:201bb141b83cf4d9cac29a6f71d555a2759fcfe99dcc4047f91b7e5f760fe2cc

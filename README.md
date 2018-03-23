@@ -19,6 +19,16 @@ gcloud compute instances create kubeadm-master-node \
   --scopes cloud-platform,logging-write
 
 
+
+Starting in v1.9 you should create and use a Discovery Token CA Cert Hash created from the master to ensure the node joins the cluster in a secure manner. Run this on the master node or wherever you have a copy of the CA file. You will get a long string as output.
+
+openssl x509 -pubkey \
+        -in /etc/kubernetes/pki/ca.crt | openssl rsa \
+        -pubin -outform der 2>/dev/null | openssl dgst \
+        -sha256 -hex | sed 's/^.* //'
+
+copy the sha256 into MASTERSHA.
+
 Once you create master node, we need TOKEN and MASTER_IP from above and update worker-node-startup.sh, then magic happens.
 ssh into kubeadm-master-node and type below command for to get kubeadm TOKEN
 
@@ -40,7 +50,7 @@ gcloud compute firewall-rules create default-allow-kubeadm-master-node \
 ```
 gcloud compute firewall-rules create default-allow-kubeadm-worker-node \
   --allow tcp:6443 \
-  --target-tags kubeadm-worker-node-0,kubeadm-worker-node-1 \
+  --target-tags kubeadm-worker-node \
   --source-ranges 0.0.0.0/0
 ```
 
@@ -57,7 +67,7 @@ for i in 1; do
     --metadata kubernetes-version=stable-1.9 \
     --metadata-from-file startup-script=worker-node-startup.sh \
     --scopes compute-rw,storage-ro,service-management,service-control,logging-write,monitoring \
-    --tags kubeadm-worker-node-${i}
+    --tags kubeadm-worker-node
 done
 
 
