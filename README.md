@@ -1,5 +1,10 @@
 # kubeadm: Multi Node Kubernetes Cluster
 
+To findout about more versions, please use below command.
+
+```
+curl -s https://packages.cloud.google.com/apt/dists/kubernetes-xenial/main/binary-amd64/Packages | grep Version | awk '{print $2}'
+```
 
 Create a master compute instance:
 
@@ -10,12 +15,15 @@ gcloud compute instances create kubeadm-master-node --can-ip-forward --image-fam
 
 gcloud compute instances create kubeadm-master-node \
   --can-ip-forward \
-  --image-family ubuntu-1710 \
+  --image-family ubuntu-1604-lts \
   --image-project ubuntu-os-cloud \
   --machine-type n1-standard-1 \
-  --metadata kubernetes-version=stable-1.9 \
+  --metadata kubernetes-version=stable-1.11.2 \
   --metadata-from-file startup-script=master-node-startup.sh \
-  --tags kubeadm-master-node \
+  --network svennela-k8s \
+  --subnet kubernetes \
+  --zone us-east1-b \
+  --tags svennela-k8s,controller \
   --scopes cloud-platform,logging-write
 
 
@@ -54,9 +62,18 @@ gcloud compute firewall-rules create default-allow-kubeadm-worker-node \
   --source-ranges 0.0.0.0/0
 ```
 
+```
+gcloud compute firewall-rules create svennela-k8s-allow-internal --allow tcp,udp,icmp --network svennela-k8s --source-ranges 10.128.0.0/24,10.128.0.0/16
+```
+
+```
+gcloud compute firewall-rules create svennela-k8s-allow-external --allow tcp:22,tcp:6443,icmp --network svennela-k8s --source-ranges 0.0.0.0/0
+
+```
+
 Create a work compute instances:
 
-for i in 1; do
+for i in 0 2; do
   gcloud compute instances create kubeadm-worker-node-${i} \
     --async \
     --boot-disk-size 50GB \
@@ -67,7 +84,10 @@ for i in 1; do
     --metadata kubernetes-version=stable-1.9 \
     --metadata-from-file startup-script=worker-node-startup.sh \
     --scopes compute-rw,storage-ro,service-management,service-control,logging-write,monitoring \
-    --tags kubeadm-worker-node
+    --network svennela-k8s \
+    --subnet kubernetes \
+    --zone us-east1-b \
+    --tags svennela-k8s,controller
 done
 
 
@@ -76,15 +96,18 @@ done
 Fetch the client kubernetes configuration file:
 
 ```
-gcloud compute scp kubeadm-master-node:/etc/kubernetes/admin.conf kubeadm-master-node.conf
+gcloud compute scp --zone "us-east1-b" kubeadm-master-node:/etc/kubernetes/admin.conf kubeadm-master-node.conf
+
 ```
+
+
 
 > It may take a few minutes for the cluster to finish bootstrapping and the client config to become readable.
 
 Set the `KUBECONFIG` env var to point to the `kubeadm-master-node.conf` kubeconfig:
 
 ```
-export KUBECONFIG=$(PWD)/kubeadm-master-node.conf
+  export KUBECONFIG=$(PWD)/kubeadm-master-node.conf
 ```
 
 Set the `kubeadm-master-node-cluster` kubeconfig server address to the public IP address:
@@ -92,7 +115,7 @@ Set the `kubeadm-master-node-cluster` kubeconfig server address to the public IP
 ```
 kubectl config set-cluster kubernetes \
   --kubeconfig kubeadm-master-node.conf \
-  --server https://$(gcloud compute instances describe kubeadm-master-node \
+  --server https://$(gcloud compute instances   describe --zone "us-east1-b" kubeadm-master-node \
      --format='value(networkInterfaces.accessConfigs[0].natIP)'):6443
 ```
 Or
@@ -109,7 +132,7 @@ export KUBECONFIG=$HOME/kubeadm-master-node.conf
 List the Kubernetes nodes:
 
 ```
-kubectl get nodes
+  kubectl get nodes
 ```
 ```
 NAME                          STATUS    ROLES     AGE       VERSION
